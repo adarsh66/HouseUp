@@ -1,0 +1,25 @@
+import facebook
+from collections import Counter
+import itertools
+import json
+''' Test run to get FB data using the graph API
+    Created at the Hack Make The Bank Hackathon
+    Date: 2015-10-10
+    Project Name: myBanker (provisional)
+    Author: Adarsh Janakiraman
+'''
+#This access token is relevant only to me.
+#App needs a way to request user to log into FB and give us their FB details for us to create a profile
+my_access_token = 'CAACEdEose0cBAF0yjjLM6rVHCNUGJfwMZBXTkZCLSLLts46XfO78mhm7YGPJooCfQ9ZCosdDfItPhruRLHg0AWWlJ3bmKPLgl6pvIbZAxxPy33yYttyMNZCL9iLlEZBx2VrkowRecJqkBaJdIRhEUm3Gh4Pw9P3fOQwaBLXJ92fy1S3BAPFskHZBFXsMljIdibAvonJR66piAZDZD'
+
+
+myGraph = facebook.GraphAPI(my_access_token)
+
+myDetails = myGraph.get_object('me')
+
+with open('myProfile.json', 'w') as fp:
+    json.dump(myDetails, fp)
+print myDetails
+relationship_status = myDetails['relationship_status']
+birthday = myDetails['birthday']
+print relationship_status + ' ' +  birthday

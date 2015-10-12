@@ -1,0 +1,122 @@
+__author__ = 'adarsh'
+
+'''
+    This file will pick up the json files generated from the FB and Open Bank APi
+    It will load these and process it to get the profile out.
+'''
+
+import json
+
+PROFILE_1_LIMIT=40000
+PROFILE_2_LIMIT=60000
+PROFILE_3_LIMIT=80000
+MY_BANK_FILE_NAME = '121212.json'
+MY_MORTGAGE_RESULTS_FILE = 'results.html'
+
+def main():
+    '''
+    :writes the product output to file
+    '''
+
+
+    myBankInfo = json.load(open(MY_BANK_FILE_NAME))
+
+    #extract info from the bank json
+    # take it from the last transaction
+    custName = myBankInfo['transactions'][0]['this_account']['holders'][0]['name']
+    balanceDict = myBankInfo['transactions'][0]['details']['new_balance']
+    myBalanceAmount = float(balanceDict['amount'])
+    myCcy = balanceDict['currency']
+    print str(myBalanceAmount) + ' ' + myCcy
+    mySalary = myRent = myBasic = myDiscretionary = 0
+
+    htmlMsg = """<html>
+                <head></head>
+                <body><p><table><tr>
+                """
+    htmlMsg += '<br>Customer Name: {}</br>'.format(custName)
+    htmlMsg += '<br>Bank Balance: {0} {1}</br>'.format(myBalanceAmount, myCcy)
+
+    #extract salary info
+    for i in range(0,len(myBankInfo['transactions'])):
+        if myBankInfo['transactions'][i]['metadata']['tags'] in ['Salary']:
+            mySalary = float(myBankInfo['transactions'][i]['details']['value']['amount'])
+        if myBankInfo['transactions'][i]['metadata']['tags'] in ['Rent']:
+            myRent = -1*float(myBankInfo['transactions'][i]['details']['value']['amount'])
+        if myBankInfo['transactions'][i]['metadata']['tags'] in ['Basic']:
+            myBasic = -1*float(myBankInfo['transactions'][i]['details']['value']['amount'])
+        if myBankInfo['transactions'][i]['metadata']['tags'] in ['Discretionary']:
+            myDiscretionary = -1*float(myBankInfo['transactions'][i]['details']['value']['amount'])
+
+    print 'salary = ' + str(mySalary)
+    print 'rent = ' + str(myRent)
+    print 'basic = ' + str(myBasic)
+    print 'discretionary = ' + str(myDiscretionary)
+
+    htmlMsg += '<br>    Salary: {0} {1}</br>'.format(mySalary, myCcy)
+    htmlMsg += '<br>    Rent: {0} {1}</br>'.format(myRent, myCcy)
+    htmlMsg += '<br>    Basic Spending: {0} {1}</br>'.format(myBasic, myCcy)
+    htmlMsg += '<br>    Discretionary Spending: {0} {1}</br>'.format(myDiscretionary, myCcy)
+
+    # Send this info to mortgage calculator
+    myMortgageProduct = getMyMortgage(myBalanceAmount, mySalary, myRent, myBasic+myDiscretionary)
+    print myMortgageProduct
+
+    htmlMsg += '<br></br>'
+
+    htmlMsg += '<br>Est. Property Value in budget: {0} {1}</br>'.format(myMortgageProduct[0], myCcy)
+    htmlMsg += '<br>    Downpayment required: {0} {1}</br>'.format(myMortgageProduct[1], myCcy)
+    htmlMsg += '<br><b>    Approved Home Loan $$: {0} {1}</b></br>'.format(myMortgageProduct[2], myCcy)
+    htmlMsg += '<br>    Rate (annualized): {0}%</br>'.format(myMortgageProduct[3])
+    htmlMsg += '<br>    Term: {0} years</br>'.format(myMortgageProduct[4])
+
+    monthlyMortgagePayments = getMortgagePayments(myMortgageProduct)
+    currentSavings = (mySalary - myRent - myBasic - myDiscretionary)
+    futureSavings = (mySalary - monthlyMortgagePayments - myBasic - myDiscretionary)
+    htmlMsg += '<br></br>'
+    htmlMsg += '<br>Buying a house is so much better than Renting!</br>'
+    htmlMsg += '<br>    Current Savings p month: {0} {1}</br>'.format(currentSavings,myCcy)
+    htmlMsg += '<br>    Rent vs Mortgage payments: {0} vs {1} {2}</br>'.format(myRent, monthlyMortgagePayments,myCcy)
+    htmlMsg += '<br>    Future Savings p month: {0} {1}</br>'.format(futureSavings,myCcy)
+    htmlMsg += '<br>    You save: {0} {1}</br>'.format(myRent- monthlyMortgagePayments , myCcy)
+
+
+    htmlMsg += """</p></body>
+                </html>
+              """
+    writeHTML(htmlMsg)
+
+
+def getMyMortgage(balance, salary, rent, expenses):
+    annualVal = (balance*2 + salary*12)
+
+    if annualVal > PROFILE_1_LIMIT and annualVal < PROFILE_2_LIMIT:
+        propertyValuation =  annualVal*1.6
+        rate = 1.6 #percent annual
+    elif annualVal > PROFILE_2_LIMIT and annualVal < PROFILE_3_LIMIT:
+        propertyValuation= annualVal*2.3
+        rate = 1.5
+    else:
+        propertyValuation= annualVal*3.4
+        rate = 1.4
+    downpaymentAmount = balance *(3/2)
+    term = 30 #25 years
+    mortgageAmount = propertyValuation - downpaymentAmount
+    return (propertyValuation, downpaymentAmount, mortgageAmount, rate, term)
+
+def getMortgagePayments(mortgageProduct):
+    mRate = (mortgageProduct[3]/12)/100
+    term = mortgageProduct[4]*12
+    potentialMortgagePayments = mortgageProduct[2]*(mRate*(1+mRate)**term)/((1+mRate)**term-1)
+    return round(potentialMortgagePayments,2)
+
+def writeHTML(message):
+    f = open(MY_MORTGAGE_RESULTS_FILE, 'w')
+    f.write(message)
+    f.close()
+
+
+
+if __name__ == '__main__':
+    ''' main routine entry '''
+    main()
